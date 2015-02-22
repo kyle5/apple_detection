@@ -1,0 +1,30 @@
+#include "include_in_all.h"
+
+#ifndef __FEATURE_COMP__
+#define __FEATURE_COMP__
+
+using namespace cv;
+using namespace std;
+
+// feature computation
+Mat threshold_uchar_above_250( Mat src_gray );
+Mat compute_valid_pixels( Mat input_img_rgb_uchar_train_mask );
+vector<vector<long> > compute_grid_points_over_superpixels( Mat input_img_16U, int superpixel_img, int max_value );
+Mat compute_features_over_image( const Mat input_img_rgb_uchar, vector<KeyPoint> grid_keypoints, string feature_type );
+vector<orchard_classification> query_superpixel_features( vector<orchard_classification> combined_labels, Mat cur_features, const Mat combined_descriptors_double );
+//  
+Mat get_superpixels_with_high_value( Mat input_img_rgb_uchar_train_temp, const vector<vector<long> > grid_indices, Mat superpixel_image_input );
+
+uchar average_elements(int *elements, int total_elements);
+uchar std_elements(int *elements, int total_elements, uchar cur_average);
+double average_elements_angle( int *elements, int total_elements);
+double std_elements_angle( int *elements, int total_elements, double cur_average_angle );
+Mat get_average_and_standard_over_patch( Mat input_img_rgb_uchar, vector< KeyPoint > grid_keypoints_train, vector<bool> is_angular_dimension, int compute_std );
+Mat compute_color_features_over_image( Mat input_img_rgb_uchar, vector< KeyPoint > grid_keypoints_train );
+Mat compute_std_by_row( Mat combined_descriptors, Mat row_mean );
+vector<Mat> compute_mean_and_std( const Mat combined_descriptors_input );
+Mat normalize_mat( Mat input_mat, vector<Mat> norm_factors_mean_and_std );
+vector<vector<long> > convert_mat_to_grid_keypoints_vector( Mat grid_keypoints_train_combined );
+void prune_keypoints( vector<vector<long> > &grid_keypoints_invalid, int num_remaining );
+void filter_indices_by_valid_superpixels( const Mat &rgb_image_8U, vector<vector<long> > &grid_indices, const Mat &superpixels_to_check);
+#endif // FEATURE_COMP

@@ -1,0 +1,9 @@
+src/feature_computation.cpp: In function ‘double average_elements_angle(int*, int)’:
+src/feature_computation.cpp:109:58: error: ‘PI’ was not declared in this scope
+src/feature_computation.cpp: In function ‘double std_elements_angle(int*, int, double)’:
+src/feature_computation.cpp:120:27: error: ‘PI’ was not declared in this scope
+src/feature_computation.cpp:123:58: error: ‘PI’ was not declared in this scope
+src/feature_computation.cpp: In function ‘cv::Mat get_average_and_standard_over_patch(cv::Mat, std::vector<cv::KeyPoint>, std::vector<bool>, int)’:
+src/feature_computation.cpp:166:55: error: ‘PI’ was not declared in this scope
+src/visualization.cpp: In function ‘cv::Mat display_superpixel_classifications(std::vector<orchard_classification>, cv::Mat, cv::Mat, std::vector<double>, std::string)’:
+src/visualization.cpp:83:20: error: ‘PI’ was not declared in this scope

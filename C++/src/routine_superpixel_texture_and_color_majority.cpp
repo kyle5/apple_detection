@@ -1,0 +1,155 @@
+#include "utility.h"
+#include "include_in_all.h"
+#include "superpixel_computation.h"
+#include "visualization.h"
+#include "ml_helper_methods.h"
+#include "feature_computation.h"
+#include "setup_correct_apple_paths.h"
+#include "classify_images.h"
+#include "setup_feature_sets.h"
+#include "utility.h"
+
+#include <iomanip>
+#include <dirent.h>
+#include <cstdlib>
+
+#define PI 3.14159265
+
+using namespace std;
+using namespace cv;
+
+string feature_type = "SURF";
+string apple_type("green");
+string root_data_directory = "/media/YIELDEST_KY/apple/";
+string dataset_name = "2011_09_15_sunrise_9b/";
+
+// TODO : ex: should mark the dark pixel values throughout the image as pixels that are "dark"
+
+
+// main function that calls everything else
+// 	first on one image then make a function to call everything else
+int main( int argc, char *argv[] ) {
+  srand ( unsigned ( time(NULL) ) );
+  string dataset_path = root_data_directory + dataset_name;
+  struct filepaths_apple_project fpaths = setup_correct_apple_paths( dataset_path );
+  
+	string mkdir_apple_type_cmd = string("mkdir ") + apple_type;
+  system( mkdir_apple_type_cmd.c_str() );
+	
+	float percent_apple, percent_non_apple;
+	Mat temp_percents;
+  // TODO: Need to find a way to only do apple parts classification over the apple segments
+  // full image: labels, texture features, color features ...
+  // aim : features_full_images.all_texture_features
+  string path_features_full_images_mask_dir = "features_full_images_mask/";
+  string system_call_features_save = string( "mkdir " ) + path_features_full_images_mask_dir;
+  system( system_call_features_save.c_str() );
+  struct features_full_images features_apple_images;
+  float resize_factor = 1;
+  int save_full_img_features = 0;
+  if ( save_full_img_features ) {
+    features_apple_images = setup_features_full_images( fpaths.raw_training_paths, resize_factor, feature_type, fpaths );
+    save_features_full_images( path_features_full_images_mask_dir, features_apple_images, fpaths );
+  } else {
+    features_apple_images = load_features_full_images( path_features_full_images_mask_dir, fpaths );
+  }
+  
+  vector<Mat> classifications_apple_segmentation;
+  string root_saving_string_mask( "mask_images_" );
+  struct supervised_feature_set features_mask = setup_supervised_feature_set( fpaths.raw_training_paths, fpaths.mask_paths, 1, fpaths, root_saving_string_mask, resize_factor );
+  string root_saving_string_mos( "mos_images_" );
+  struct supervised_feature_set features_mask_of_shape = setup_supervised_feature_set( fpaths.raw_training_paths, fpaths.mos_paths, 0, fpaths, root_saving_string_mos, resize_factor );
+
+  // TODO : ex: make a leave one out function
+  for ( int i = 0; i < (int) fpaths.raw_training_paths.size(); i++ ) {
+    if ( fpaths.mask_paths[i].length() == 0 ) continue; // 
+    struct classifier_features loo_cf = setup_classifier_features( features_mask, i );
+    
+    // create_svm( loo_cf );
+    // create_random_forest( loo_cf );
+    string raw_image_path = fpaths.raw_training_paths[i];
+    
+    vector<Mat> superpixels_to_check_vec_mask;
+    struct classification_result cur_class_result = classify_image( loo_cf, raw_image_path, features_apple_images, feature_type, superpixels_to_check_vec_mask, i );
+    Mat percentages_by_type = calculate_percentage_by_type( cur_class_result.superpixel_image, cur_class_result.classifications );
+    float min_probability = 0.7;
+    // ex TODO : loop over a number of probabilities : segment superpixels that have a certainty of being apple pixels
+    Mat classifications = calculate_maximal_classifications( percentages_by_type, min_probability );
+    // vector<Mat> superpixel_indices = calculate_superpixel_indices( cur_class_result.superpixel_image );
+    // Mat classifications_drawn = draw_classifications( cur_class_result.superpixel_image, classifications );
+    Mat  classifications_drawn = draw_apple_pixels( cur_class_result.superpixel_image, read_image_and_flip_90(raw_image_path, 1), classifications );
+    ostringstream stream;
+    stream << apple_type << "/results_simple_loo_" << i << ".ppm";
+    string image_path_cur = stream.str();
+    imwrite( image_path_cur, classifications_drawn );
+    
+    if ( fpaths.mos_paths[i].length() == 0 ) continue; // There is no corresponding apple parts image
+    struct classifier_features loo_mos_cf = setup_classifier_features( features_mask_of_shape, i );
+    Mat superpixels_to_check( classifications.rows, 1, CV_8U, Scalar(0) );
+    for ( int j = 0; j < classifications.rows; j++ ) {
+      if ( classifications.at<uchar>( j, 0 ) == 1 ) {
+        superpixels_to_check.at<uchar>(j, 0) = 1;
+      }
+    }
+    vector<Mat> superpixels_to_check_vec_mos;
+    superpixels_to_check_vec_mos.push_back( superpixels_to_check );
+    struct classification_result cur_class_result_mos = classify_image(loo_mos_cf, raw_image_path, features_apple_images, feature_type, superpixels_to_check_vec_mos, i);
+    Mat percentages_by_type_mos = calculate_percentage_by_type( cur_class_result_mos.superpixel_image, cur_class_result_mos.classifications );
+    float min_probability_mos = 0.25;
+    Mat classifications_mos = calculate_maximal_classifications( percentages_by_type_mos, min_probability_mos );
+    Mat  classifications_drawn_mos = draw_apple_pixels( cur_class_result.superpixel_image, read_image_and_flip_90(raw_image_path, 1), classifications_mos );
+    ostringstream stream_mos;
+    stream_mos << apple_type << "/results_simple_loo_mos_" << i << ".ppm";
+    string image_path_cur_mos = stream_mos.str();
+    imwrite( image_path_cur_mos, classifications_drawn_mos );
+  }
+
+  int classify_testing_images = 0;
+  if ( classify_testing_images ) {
+    // TODO : Setup classification over images from a testing set
+    // for each of the testing images : segment apples : segment mos
+    ///  load image
+    ///  get apple segmentation
+    ///  save apple segmentation
+    struct classifier_features full_cf = setup_classifier_features( features_mask );
+    struct features_full_images temp_input;
+    for ( int i = 0; i < (int) fpaths.testing_image_paths.size(); i++ ) {
+      string cur_testing_image_path = fpaths.testing_image_paths[i];
+      int cur_testing_image_number = fpaths.testing_image_numbers[i];
+      vector<Mat> superpixels_to_check_vec_mask;
+      // note i = -1
+      struct classification_result cur_class_result = classify_image( full_cf, cur_testing_image_path, temp_input, feature_type, superpixels_to_check_vec_mask, -1 );
+      Mat percentages_by_type = calculate_percentage_by_type( cur_class_result.superpixel_image, cur_class_result.classifications );
+      float min_probability = 0.7;
+      // ex TODO : loop over a number of probabilities : segment superpixels that have a certainty of being apple pixels
+      Mat classifications = calculate_maximal_classifications( percentages_by_type, min_probability );
+      // vector<Mat> superpixel_indices = calculate_superpixel_indices( cur_class_result.superpixel_image );
+      // Mat classifications_drawn = draw_classifications( cur_class_result.superpixel_image, classifications );
+      Mat raw_img = read_image_and_flip_90(cur_testing_image_path, 1);
+      Mat  classifications_drawn = draw_apple_pixels( cur_class_result.superpixel_image, raw_img, classifications );
+      ostringstream stream;
+      stream << apple_type << "/results_testing_classifications_" << cur_testing_image_number << ".ppm";
+      string image_path_cur = stream.str();
+      imwrite( image_path_cur, classifications_drawn );
+      
+      ostringstream stream_superpixel_img;
+      stream_superpixel_img << apple_type << "/superpixel_image_" << cur_testing_image_number << ".png";
+      imwrite( stream_superpixel_img.str(), cur_class_result.superpixel_image );
+
+      // save the probability of apple classification
+      int idx_apple = 0;
+      Mat apple_classifications_probability_8U = draw_classification_probability( cur_class_result.superpixel_image, percentages_by_type, idx_apple );
+      ostringstream ap_prob_stream;
+      ap_prob_stream << apple_type << "/apple_probabilities_" << cur_testing_image_number << ".pgm";
+      imwrite( ap_prob_stream.str(), apple_classifications_probability_8U );
+      
+      // save the actual classifications
+      Mat apple_classifications_drawn_8U = draw_only_apple_classifications( cur_class_result.superpixel_image, classifications );
+      ostringstream ap_class_stream;
+      ap_class_stream << apple_type << "/apple_classifications_" << cur_testing_image_number << ".pgm";
+      imwrite( ap_class_stream.str(), apple_classifications_drawn_8U );
+    }
+	  printf( "z\n" );
+  }
+	return 0;
+}

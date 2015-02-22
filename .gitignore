@@ -1,0 +1,7 @@
+C++/build/
+C++/data/
+C++/results_features_and_rgb/
+C++/*.pgm
+C++/*.png
+C++/*.yml
+matlab/*.mat
